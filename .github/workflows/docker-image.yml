@@ -1,0 +1,67 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+name: Publish Docker image
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  push_to_registry:
+    name: Push Docker image to Docker Hub
+    if: ${{ startsWith(github.repository, 'apache/') }}
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        include:
+          - suffix-name: ''
+            opts: '--flink-provided --spark-provided --hive-provided'
+          - suffix-name: '-spark'
+            opts: '--flink-provided --hive-provided'
+          - suffix-name: '-flink'
+            opts: '--spark-provided --hive-provided'
+          - suffix-name: '-all'
+            opts: ''
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup JDK 8
+        uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: 8
+          check-latest: false
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USER }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Build Kyuubi Docker Image
+        run: |
+          export KYUUBI_VERSION=$(cat release/release_version)
+          wget https://archive.apache.org/dist/kyuubi/kyuubi-${KYUUBI_VERSION}/apache-kyuubi-${KYUUBI_VERSION}-source.tgz
+          tar -xvf apache-kyuubi-${KYUUBI_VERSION}-source.tgz
+          cd apache-kyuubi-${KYUUBI_VERSION}-source
+          ./build/dist ${{ matrix.opts }} -Dmaven.javadoc.skip=true -Dmaven.scaladoc.skip=true -Drat.skip=true -Dscalastyle.skip=true -Dspotless.check.skip -DskipTests
+          cd ..
+          docker build --tag apache/kyuubi:${KYUUBI_VERSION}${{ matrix.suffix-name }} --file ${KYUUBI_VERSION}/*/Dockerfile apache-kyuubi-${KYUUBI_VERSION}-source/dist
+      - name: Validate docker image
+        run: docker images
+      - name: Push Docker image
+        run: docker push apache/kyuubi:$(cat release/release_version)${{ matrix.suffix-name }}
