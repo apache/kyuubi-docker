@@ -1,4 +1,4 @@
-FROM eclipse-temurin:8-jre
+FROM eclipse-temurin:8-jdk-focal
 
 ARG kyuubi_uid=10009
 
