@@ -54,11 +54,17 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Build Kyuubi Docker Image
         run: |
+          # See simple version normalization: http://stackoverflow.com/questions/16989598/bash-comparing-version-numbers
+          function version { echo "$@" | awk -F. '{ printf("%03d%03d%03d\n", $1,$2,$3); }'; }
+          extra_build_args=""
           export KYUUBI_VERSION=$(cat release/release_version)
+          if [ $(version $KYUUBI_VERSION) -ge $(version "1.8.0") ]; then
+            extra_build_args="$extra_build_args --web-ui"
+          fi
           wget https://archive.apache.org/dist/kyuubi/kyuubi-${KYUUBI_VERSION}/apache-kyuubi-${KYUUBI_VERSION}-source.tgz
           tar -xvf apache-kyuubi-${KYUUBI_VERSION}-source.tgz
           cd apache-kyuubi-${KYUUBI_VERSION}-source
-          ./build/dist ${{ matrix.opts }}
+          ./build/dist ${{ matrix.opts }} $extra_build_args
           cd ..
           docker build --tag apache/kyuubi:${KYUUBI_VERSION}${{ matrix.suffix-name }} --file ${KYUUBI_VERSION}/*/Dockerfile apache-kyuubi-${KYUUBI_VERSION}-source/dist
       - name: Validate docker image
