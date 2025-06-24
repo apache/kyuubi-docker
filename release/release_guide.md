@@ -18,9 +18,21 @@
 Kyuubi Docker Release Guide
 ===
 
+## Prerequisites
+
+Make sure Kyuubi has released a new version.
+
 ## Steps
 
-1. Make sure Kyuubi has released a new version
-2. Submit a pull request to update the `release_version` file to the new version
-3. After pull request merged. Push a new tag.
-4. After new tag created, github action will trigger a workflow to build and push new image to dockerhub
+### Feature release
+
+1. Submit a pull request to the **master** branch to update the `release_version` file to the new **minor** version.
+2. After the pull request is merged, push a new tag to the commit to trigger a workflow that builds and pushes a new image to dockerhub.
+3. Make sure the workflow completes successfully and new image is available on dockerhub.
+4. Create a new branch from the commit using the version in the branch name.
+
+### Patch release
+
+1. Submit a pull request to the **minor** release branch to update the `release_version` file to the new **patch** version.
+2. After the pull request is merged, push a new tag to the commit to trigger a workflow that builds and pushes a new image to dockerhub.
+3. Make sure the workflow completes successfully and new image is available on dockerhub.
