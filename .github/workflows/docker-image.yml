@@ -46,12 +46,16 @@ jobs:
         with:
           distribution: temurin
           java-version: 8
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
       - name: Login to Docker Hub
         uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
         with:
           username: ${{ secrets.DOCKERHUB_USER }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Build Kyuubi Docker Image
+      - name: Build and push Kyuubi Docker image
         run: |
           # See simple version normalization: http://stackoverflow.com/questions/16989598/bash-comparing-version-numbers
           function version { echo "$@" | awk -F. '{ printf("%03d%03d%03d\n", $1,$2,$3); }'; }
@@ -65,8 +69,10 @@ jobs:
           cd apache-kyuubi-${KYUUBI_VERSION}-source
           ./build/dist ${{ matrix.opts }} $extra_build_args
           cd ..
-          docker build --tag apache/kyuubi:${KYUUBI_VERSION}${{ matrix.suffix-name }} --file ${KYUUBI_VERSION}/*/Dockerfile apache-kyuubi-${KYUUBI_VERSION}-source/dist
-      - name: Validate docker image
-        run: docker images
-      - name: Push Docker image
-        run: docker push apache/kyuubi:$(cat release/release_version)${{ matrix.suffix-name }}
+          # buildx builds and pushes the multi-arch manifest list in one step (it cannot be loaded locally)
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            --tag apache/kyuubi:${KYUUBI_VERSION}${{ matrix.suffix-name }} \
+            --file ${KYUUBI_VERSION}/*/Dockerfile \
+            --push \
+            apache-kyuubi-${KYUUBI_VERSION}-source/dist
